@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-table: #e9efea;
+  --color-panel: #f7faf7;
+  --color-ink: #13201a;
+  --color-muted: #55645b;
+  --color-line: #c9d5cc;
+  --color-leaf: #1e4d34;
+  --color-leaf-soft: #d3e4d8;
+  --color-amber: #b7791f;
+  --color-danger: #a1301f;
+  --color-c-healthy: #2f7d4f;
+  --color-c-blight: #b7791f;
+  --color-c-rust: #b4472b;
+  --color-c-spot: #5b6b86;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+html { background: var(--color-table); }
+body { color: var(--color-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
+:focus-visible { outline: 3px solid var(--color-amber); outline-offset: 2px; border-radius: 4px; }
+
+@keyframes scan { 0% { transform: translateY(-4%); } 100% { transform: translateY(104%); } }
+.scanline { animation: scan 1.4s ease-in-out infinite alternate; }
+@keyframes heat-in { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+.heat-in { animation: heat-in 1.2s ease-out .3s both; transform-origin: center; transform-box: fill-box; }
+@media (prefers-reduced-motion: reduce) { .scanline, .heat-in { animation: none; } }
