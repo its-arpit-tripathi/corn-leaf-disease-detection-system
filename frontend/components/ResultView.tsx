@@ -9,6 +9,15 @@ import {
 import AuthImage from "./AuthImage";
 
 export function Probabilities({ p }: { p: Prediction }) {
+  const isCorn = Boolean(
+    p.is_corn_leaf &&
+    p.predicted_class !== "Not_Leaf" &&
+    p.predicted_class !== "Not_Corn" &&
+    p.predicted_class !== "Non_Maize" &&
+    p.predicted_class !== "Other"
+  );
+  if (!isCorn) return null;
+
   const rows = (Object.entries(p.probabilities) as [string, number][]).sort(
     (a, b) => b[1] - a[1]
   );
@@ -59,10 +68,23 @@ export function Probabilities({ p }: { p: Prediction }) {
   );
 }
 
-export default function ResultView({ p }: { p: Prediction }) {
-  const [view, setView] = useState<"heatmap" | "original">("heatmap");
+export default function ResultView({
+  p,
+  originalPreviewUrl,
+}: {
+  p: Prediction;
+  originalPreviewUrl?: string | null;
+}) {
+  const isCorn = Boolean(
+    p.is_corn_leaf &&
+    p.predicted_class !== "Not_Leaf" &&
+    p.predicted_class !== "Not_Corn" &&
+    p.predicted_class !== "Non_Maize" &&
+    p.predicted_class !== "Other"
+  );
 
-  const isCorn = p.is_corn_leaf;
+  const [view, setView] = useState<"heatmap" | "original">(isCorn ? "heatmap" : "original");
+
   const isHealthy = p.predicted_class === "Healthy";
   const displayColor = getClassColor(p.predicted_class);
 
@@ -79,21 +101,32 @@ export default function ResultView({ p }: { p: Prediction }) {
   const pathogen = p.pathogen || p.info?.pathogen;
   const severity = p.severity || p.info?.severity;
 
+  const showConfidenceBar = isCorn || (p.predicted_class === "Not_Leaf" && p.confidence >= 0.5);
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,26rem)_1fr]">
       {/* Left Column: Image Viewer with Grad-CAM and Heatmap Toggle */}
       <div>
         <div className="overflow-hidden rounded-xl border border-line bg-panel shadow-sm">
-          <AuthImage
-            key={`${p.id}-${view}`}
-            path={`/api/predictions/${p.id}/${view === "heatmap" ? "heatmap" : "image"}`}
-            alt={
-              view === "heatmap"
-                ? "Leaf with Grad-CAM heat map highlighting active regions"
-                : "Uploaded photo"
-            }
-            className="aspect-square w-full object-cover"
-          />
+          {view === "original" && originalPreviewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={originalPreviewUrl}
+              alt="Uploaded photo"
+              className="aspect-square w-full object-cover"
+            />
+          ) : (
+            <AuthImage
+              key={`${p.id}-${view}-${p.created_at ? new Date(p.created_at).getTime() : p.id}`}
+              path={`/api/predictions/${p.id}/${view === "heatmap" ? "heatmap" : "image"}?v=${p.created_at ? new Date(p.created_at).getTime() : p.id}`}
+              alt={
+                view === "heatmap"
+                  ? "Leaf with Grad-CAM heat map highlighting active regions"
+                  : "Uploaded photo"
+              }
+              className="aspect-square w-full object-cover"
+            />
+          )}
         </div>
 
         <div
@@ -157,7 +190,7 @@ export default function ResultView({ p }: { p: Prediction }) {
             </span>
           )}
 
-          {severity && severity !== "None" && severity !== "N/A" && (
+          {isCorn && severity && severity !== "None" && severity !== "N/A" && (
             <span className="inline-flex items-center rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-800 ring-1 ring-orange-500/20">
               Severity: {severity}
             </span>
@@ -176,23 +209,25 @@ export default function ResultView({ p }: { p: Prediction }) {
             {diseaseName}
           </h2>
 
-          {pathogen && pathogen !== "None" && pathogen !== "None detected" && pathogen !== "N/A" && (
+          {isCorn && pathogen && pathogen !== "None" && pathogen !== "None detected" && pathogen !== "N/A" && (
             <p className="mt-1 text-sm italic text-muted">
               Causative Pathogen: <span className="font-medium text-ink">{pathogen}</span>
             </p>
           )}
 
-          <div className="mt-3 flex items-center gap-3">
-            <div className="h-2.5 w-32 overflow-hidden rounded-full bg-leaf-soft">
-              <div
-                className="h-full rounded-full bg-leaf transition-all duration-500"
-                style={{ width: `${Math.min(100, p.confidence * 100)}%` }}
-              />
+          {showConfidenceBar && (
+            <div className="mt-3 flex items-center gap-3">
+              <div className="h-2.5 w-32 overflow-hidden rounded-full bg-leaf-soft">
+                <div
+                  className="h-full rounded-full bg-leaf transition-all duration-500"
+                  style={{ width: `${Math.min(100, p.confidence * 100)}%` }}
+                />
+              </div>
+              <span className="text-sm font-semibold text-ink tabular-nums">
+                {(p.confidence * 100).toFixed(1)}% Confidence
+              </span>
             </div>
-            <span className="text-sm font-semibold text-ink tabular-nums">
-              {(p.confidence * 100).toFixed(1)}% Confidence
-            </span>
-          </div>
+          )}
         </div>
 
         {/* Warnings & Alerts */}
@@ -204,14 +239,9 @@ export default function ResultView({ p }: { p: Prediction }) {
             <p className="font-semibold">⚠️ Photo Not Identified as Maize Foliage</p>
             <p className="mt-1 text-amber-800">
               This detection model is specialized strictly for maize (corn) leaf diseases.
-              Photos of weeds, other crops (tomato, potato, etc.), or non-plant objects are
+              Photos of weeds, other crops (sugarcane, tomato, potato, etc.), or non-plant objects are
               flagged to prevent false diagnoses.
             </p>
-            {p.suspected_disease && (
-              <p className="mt-2 text-xs text-amber-700">
-                Visual texture nearest pattern: <strong>{p.suspected_disease}</strong> (Unverified due to domain mismatch).
-              </p>
-            )}
           </div>
         )}
 
@@ -224,8 +254,8 @@ export default function ResultView({ p }: { p: Prediction }) {
           </div>
         )}
 
-        {/* Probability Breakdown */}
-        <Probabilities p={p} />
+        {/* Probability Breakdown - only shown for verified maize leaves */}
+        {isCorn && <Probabilities p={p} />}
 
         {/* Detailed Agronomic Insights */}
         {p.info && (
@@ -234,11 +264,11 @@ export default function ResultView({ p }: { p: Prediction }) {
             className="rounded-xl border border-line bg-panel p-5 space-y-4 shadow-xs"
           >
             <h3 id="about-result" className="text-lg font-semibold text-ink">
-              About This Diagnosis
+              {isCorn ? "About This Diagnosis" : "Guidance for Maize Photos"}
             </h3>
             <p className="text-sm leading-relaxed text-ink/90">{p.info.summary}</p>
 
-            {p.info.symptoms && p.info.symptoms.length > 0 && (
+            {isCorn && p.info.symptoms && p.info.symptoms.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-ink">Field Symptoms to Verify</h4>
                 <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-muted">
@@ -251,7 +281,9 @@ export default function ResultView({ p }: { p: Prediction }) {
 
             {p.info.advice && p.info.advice.length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-ink">Recommended Actions</h4>
+                <h4 className="text-sm font-semibold text-ink">
+                  {isCorn ? "Recommended Actions" : "Image Guidelines"}
+                </h4>
                 <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-muted">
                   {p.info.advice.map((a) => (
                     <li key={a}>{a}</li>

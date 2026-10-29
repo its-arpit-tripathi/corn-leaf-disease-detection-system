@@ -110,7 +110,7 @@ function History() {
               >
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-zinc-100">
                   <AuthImage
-                    path={`/api/predictions/${p.id}/image`}
+                    path={`/api/predictions/${p.id}/image?v=${new Date(p.created_at).getTime()}`}
                     alt=""
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />

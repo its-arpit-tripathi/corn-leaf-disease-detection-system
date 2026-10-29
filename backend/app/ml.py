@@ -64,7 +64,8 @@ def analyze_foliage_characteristics(rgb: np.ndarray) -> tuple[bool, float]:
     """Inspect color spectra and texture to verify whether the image contains plant foliage.
 
     Returns (is_plant_like, vegetation_score).
-    Detects solid blank colors, non-plant artificial patterns, or total absence of leaf pigments.
+    Detects solid blank colors, documents/handwriting/text, non-plant artificial patterns,
+    or total absence of leaf pigments.
     """
     # 1. Check for blank / solid color / extreme low-variance image
     std_per_channel = rgb.std(axis=(0, 1))
@@ -75,15 +76,16 @@ def analyze_foliage_characteristics(rgb: np.ndarray) -> tuple[bool, float]:
     # 2. Check vegetation color distribution in HSV
     hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
     h, s, v = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    total_pixels = rgb.shape[0] * rgb.shape[1]
 
     # Green foliage mask (OpenCV H is 0-180; 22-88 corresponds to yellow-green, green, dark green)
     green_mask = (h >= 22) & (h <= 90) & (s >= 25) & (v >= 20)
+    green_ratio = float(np.count_nonzero(green_mask) / total_pixels)
 
     # Lesion / necrosis foliage mask (yellowish-tan, rust-brown typical of blights & rusts)
     lesion_mask = (h >= 8) & (h < 22) & (s >= 35) & (v >= 25)
 
     plant_pixels = int(np.count_nonzero(green_mask | lesion_mask))
-    total_pixels = rgb.shape[0] * rgb.shape[1]
     veg_ratio = float(plant_pixels / total_pixels)
 
     # 3. Excess Green index (ExG = 2*G - R - B)
@@ -91,12 +93,23 @@ def analyze_foliage_characteristics(rgb: np.ndarray) -> tuple[bool, float]:
     exg = 2.0 * g_ch - r_ch - b_ch
     exg_ratio = float(np.count_nonzero(exg > 5.0) / total_pixels)
 
+    # 4. Check for documents, handwriting, printed text, or monochromatic non-plant surfaces
+    # Documents and notebook pages typically have >70% low-saturation pixels (S < 25) and lack chlorophyll
+    low_sat_ratio = float(np.count_nonzero(s < 25) / total_pixels)
+    if low_sat_ratio > 0.70 and green_ratio < 0.025:
+        # Paper, whiteboard, printed document, handwriting, or grayscale non-leaf image
+        return False, 0.0
+
     combined_score = max(veg_ratio, exg_ratio * 0.8)
+
+    # Maize leaves (even diseased) have noticeable chlorophyll/green regions (> 2.0%) or high foliage presence
+    if green_ratio < 0.020 and veg_ratio < 0.08:
+        return False, combined_score
 
     # If the image has virtually zero leaf-like foliage pixels (< 3.5%) and low variation, reject
     if combined_score < 0.035 and overall_std < 18.0:
         return False, combined_score
-    if combined_score < 0.015:
+    if combined_score < 0.020:
         return False, combined_score
 
     return True, combined_score

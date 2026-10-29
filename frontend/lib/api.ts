@@ -140,6 +140,7 @@ export async function fetchImageBlob(path: string): Promise<string> {
   const token = tokenStore.get();
   const res = await fetch(`${API_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    cache: "no-store",
   });
   if (!res.ok) throw new ApiError(res.status, "Image unavailable");
   return URL.createObjectURL(await res.blob());

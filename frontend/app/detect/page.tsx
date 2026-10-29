@@ -45,7 +45,7 @@ function Detect() {
           <h1 className="text-3xl font-semibold text-leaf">Result</h1>
           <button onClick={reset} className="rounded-lg bg-leaf px-4 py-2.5 font-semibold text-white hover:bg-[#173d29]">Check another leaf</button>
         </div>
-        <ResultView p={result} />
+        <ResultView p={result} originalPreviewUrl={preview} />
       </div>
     );
   }

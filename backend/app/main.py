@@ -208,14 +208,21 @@ def get_prediction(pid: int, user: User = Depends(get_current_user), db: Session
     return to_out(_owned(db, user, pid))
 
 
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
 @app.get("/api/predictions/{pid}/image")
 def prediction_image(pid: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return FileResponse(_owned(db, user, pid).image_path, media_type="image/jpeg")
+    return FileResponse(_owned(db, user, pid).image_path, media_type="image/jpeg", headers=NO_CACHE_HEADERS)
 
 
 @app.get("/api/predictions/{pid}/heatmap")
 def prediction_heatmap(pid: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return FileResponse(_owned(db, user, pid).heatmap_path, media_type="image/png")
+    return FileResponse(_owned(db, user, pid).heatmap_path, media_type="image/png", headers=NO_CACHE_HEADERS)
 
 
 @app.delete("/api/predictions/{pid}", status_code=204)
